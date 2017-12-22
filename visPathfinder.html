@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<!-- saved from url=(0069)http://visjs.org/examples/network/exampleApplications/nodeLegend.html -->
+<html>
+ <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <title>Network QOS Path Finder</title>
+
+  <style type="text/css">
+    html, body {
+      font: 10pt arial;
+      padding: 0;
+      margin: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    #mynetwork {
+      width: 100%;
+      height: 100%;
+      background-color: lightgrey;
+      position: relative;
+    }
+      
+    #mynetwork canvas, #output, #legend {
+      position: absolute;
+    }
+      
+    #legend {
+/*          border: 2px solid tomato;*/
+          bottom: 50px;
+          left: 50px;
+      }
+      
+    #refresh {
+         background-color: #4CAF50;
+         color: white;
+    }
+
+    #refresh:hover {
+   
+    background-color: white; 
+    color: black; 
+    border: 2px solid #4CAF50;
+    }
+
+  </style>
+
+  <script type="text/javascript" src="./vis-4.21.0/dist/vis.js"></script>
+  <script src="shortestpath.js"></script>
+  <link href="./vis-4.21.0/dist/vis-network.min.css" rel="stylesheet" type="text/css">
+  <link rel="stylesheet" href="http://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <script type="text/javascript">
+        var nodes = null;
+        var edges = null;
+        var network = null;
+
+        var LENGTH_MAIN = 350,
+            LENGTH_SERVER = 150,
+            LENGTH_SUB = 50,
+            WIDTH_SCALE = 2,
+            GREEN = 'green',
+            RED = '#C5000B',
+            ORANGE = 'orange',
+            //GRAY = '#666666',
+            GRAY = 'gray',
+            BLACK = '#2B1B17';
+        
+        var total_weight;
+        
+//      range for the network delay    
+        var min = 0.005;
+        var max = 0.2;
+        
+        //user - edge_router: 50%
+        var s1 = 0.40;
+        //edge_router - core_router: 25%
+        var s2 = 0.30;
+        //core_router - core_router: 15%
+        var s3 = 0.20;
+        //ISP - core_router: 5%
+        var s4 = 0.10;
+        //accessing the outernet
+        var s5 = 0.70;
+
+        var path_1st = [];
+        //var data;
+        var edges_gbl;
+        //var showlabel = true;
+        // Called when the Visualization API is loaded.
+
+        function convert(edges) {
+            graph = [];
+
+            edges.forEach(function(edge) {
+                graph.push([edge.from, edge.to, parseFloat(edge.label)]);
+            });
+            return graph
+
+
+        }
+        
+        function changeWeight(){
+                var target_edge = network.getSelectedEdges()[0];
+                var weight;
+                edges_gbl.forEach(function(edge) {
+
+                    if (edge.id == target_edge) {
+                        weight = edge.label;
+                        edge.label = document.getElementById("newlatency").value;
+                        data.edges.update(edge);
+                    }
+            });
+
+            console.log("the edge weight is: ", weight)
+        }
+        
+        
+
+        function draw() {
+            // Create a data table with nodes.
+            nodes = [];
+            var nodes = [                
+                {id: 101, label: 'ISP 1', group: 'internet'},
+                {id: 102, label: 'ISP 2', group: 'internet'},
+                {id: 1, label: 'gateway1', group: 'gateway'},
+                {id: 2, label: 'gateway2', group: 'gateway'},
+                {id: 3, label: 'gateway3', group: 'gateway'},
+                {id: 4, label: 'router4', group: 'core_router'},
+                {id: 5, label: 'router5', group: 'core_router'},
+                {id: 6, label: 'router6', group: 'edge_router'},
+                {id: 7, label: 'router7', group: 'core_router'},
+                {id: 8, label: 'router8', group: 'edge_router'},
+                {id: 9, label: 'router9', group: 'core_router'},
+                {id: 10, label: 'router10', group: 'core_router'},
+                {id: 11, label: 'router11', group: 'core_router'},
+                {id: 12, label: 'router12', group: 'core_router'},
+                {id: 13, label: 'router13', group: 'edge_router'},
+                {id: 14, label: 'router14', group: 'core_router'},
+                {id: 15, label: 'router15', group: 'core_router'},
+                {id: 16, label: 'router16', group: 'edge_router'},
+                {id: 17, label: 'router17', group: 'core_router'},
+                {id: 111, label: 'user 1', group: 'user'},
+                {id: 222, label: 'user 2', group: 'user'},
+                {id: 333, label: 'user 3', group: 'user'},
+                {id: 444, label: 'user 4', group: 'user'},
+                {id: 555, label: 'user 5', group: 'user'},
+                {id: 666, label: 'user 6', group: 'user'},
+                {id: 777, label: 'user 7', group: 'user'},
+                {id: 888, label: 'user 8', group: 'user'},
+                {id: 999, label: 'user 9', group: 'user'},
+            ];
+
+            
+            
+            //ISP - router
+            a101_1=((Math.random()*(max-min)+min)*s4).toFixed(5);
+            a101_2=((Math.random()*(max-min)+min)*s5).toFixed(5);   //outernet
+            a102_2=((Math.random()*(max-min)+min)*s5).toFixed(5);   //outernet
+            a102_3=((Math.random()*(max-min)+min)*s4).toFixed(5);
+            
+            //routers' weight
+            a2_4=((Math.random()*(max-min)+min)*s5).toFixed(5);     //outernet
+            a2_10=((Math.random()*(max-min)+min)*s5).toFixed(5);    //outernet
+            a4_10=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a1_4=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a1_5=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a4_5=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a5_6=((Math.random()*(max-min)+min)*s2).toFixed(5);
+            a5_7=((Math.random()*(max-min)+min)*s2).toFixed(5);
+            a6_7=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a7_8=((Math.random()*(max-min)+min)*s2).toFixed(5);
+            a7_9=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a8_9=((Math.random()*(max-min)+min)*s2).toFixed(5);
+            a9_10=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a2_11=((Math.random()*(max-min)+min)*s5).toFixed(5);    //outernet
+            a3_11=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a11_12=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a12_13=((Math.random()*(max-min)+min)*s2).toFixed(5);
+            a13_14=((Math.random()*(max-min)+min)*s2).toFixed(5);
+            a11_14=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a11_17=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a14_17=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a14_15=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a12_15=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a15_16=((Math.random()*(max-min)+min)*s2).toFixed(5);
+            a15_17=((Math.random()*(max-min)+min)*s3).toFixed(5);
+            a16_17=((Math.random()*(max-min)+min)*s2).toFixed(5);
+            
+            //router to user
+            a6_111=((Math.random()*(max-min)+min)*s1).toFixed(5);
+            a6_222=((Math.random()*(max-min)+min)*s1).toFixed(5);
+            a8_333=((Math.random()*(max-min)+min)*s1).toFixed(5);
+            a8_444=((Math.random()*(max-min)+min)*s1).toFixed(5);
+            a13_555=((Math.random()*(max-min)+min)*s1).toFixed(5);
+            a13_666=((Math.random()*(max-min)+min)*s1).toFixed(5);
+            a16_777=((Math.random()*(max-min)+min)*s1).toFixed(5);
+            a16_888=((Math.random()*(max-min)+min)*s1).toFixed(5);
+            a16_999=((Math.random()*(max-min)+min)*s1).toFixed(5);
+            
+            
+            // create an array with edges
+            var edges = [
+                
+                {from:101, to:1, label: a101_1},                
+                {from:1, to:101, label: a101_1},
+                {from:101, to:2, label: a101_2},
+                {from:2, to:101, label: a101_2},
+                {from:102, to:2, label: a102_2},
+                {from:2, to:102, label: a102_2},
+                {from:102, to:3, label: a102_3},
+                {from:3, to:102, label: a102_3},
+                
+                
+                {from:2, to:4, label: a2_4},
+                {from:4, to:2, label: a2_4},
+                {from:2, to:10, label: a2_10},
+                {from:10, to:2, label: a2_10},
+                {from:4, to:10, label: a4_10},
+                {from:10, to:4, label: a4_10},
+                {from:1, to:4, label: a1_4},
+                {from:4, to:1, label: a1_4},
+                {from:1, to:5, label: a1_5},
+                {from:5, to:1, label: a1_5},
+                {from:4, to:5, label: a4_5},
+                {from:5, to:4, label: a4_5},
+                {from:5, to:6, label: a5_6},
+                {from:6, to:5, label: a5_6},
+                {from:5, to:7, label: a5_7},
+                {from:7, to:5, label: a5_7},
+                {from:6, to:7, label: a6_7},
+                {from:7, to:6, label: a6_7},
+                {from:7, to:8, label: a7_8},
+                {from:8, to:7, label: a7_8},
+                {from:7, to:9, label: a7_9},
+                {from:9, to:7, label: a7_9},
+                {from:8, to:9, label: a8_9},
+                {from:9, to:8, label: a8_9},
+                {from:9, to:10, label: a9_10},  
+                {from:10, to:9, label: a9_10},  
+                {from:2, to:11, label: a2_11},  
+                {from:11, to:2, label: a2_11},  
+                {from:3, to:11, label: a3_11},  
+                {from:11, to:3, label: a3_11},  
+                {from:11, to:12, label: a11_12},  
+                {from:12, to:11, label: a11_12},  
+                {from:12, to:13, label: a12_13},  
+                {from:13, to:12, label: a12_13},  
+                {from:13, to:14, label: a13_14},  
+                {from:14, to:13, label: a13_14},  
+                {from:11, to:14, label: a11_14},  
+                {from:14, to:11, label: a11_14},  
+                {from:14, to:17, label: a14_17},  
+                {from:17, to:14, label: a14_17},  
+                {from:14, to:15, label: a14_15},  
+                {from:15, to:14, label: a14_15},  
+                {from:12, to:15, label: a12_15},  
+                {from:15, to:12, label: a12_15},  
+                {from:15, to:16, label: a15_16},  
+                {from:16, to:15, label: a15_16},  
+                {from:15, to:17, label: a15_17},  
+                {from:17, to:15, label: a15_17},  
+                {from:16, to:17, label: a16_17},  
+                {from:17, to:16, label: a16_17},  
+                
+                
+                
+                {from:6, to:111, label: a6_111},  
+                {from:111, to:6, label: a6_111},  
+                {from:6, to:222, label: a6_222},  
+                {from:222, to:6, label: a6_222},  
+                {from:8, to:333, label: a8_333},  
+                {from:333, to:8, label: a8_333},  
+                {from:8, to:444, label: a8_444},  
+                {from:444, to:8, label: a8_444},  
+                {from:13, to:555, label: a13_555},  
+                {from:555, to:13, label: a13_555},  
+                {from:13, to:666, label: a13_666},  
+                {from:666, to:13, label: a13_666},  
+                {from:16, to:777, label: a16_777},  
+                {from:777, to:16, label: a16_777},  
+                {from:16, to:888, label: a16_888},  
+                {from:888, to:16, label: a16_888},  
+                {from:16, to:999, label: a16_999},  
+                {from:999, to:16, label: a16_999},  
+            
+            ];
+            
+            
+              
+            
+            // create a network
+            var container = document.getElementById('mynetwork');
+            nodes = new vis.DataSet(nodes);
+            edges = new vis.DataSet(edges);
+            
+            edges_gbl = edges;
+            
+            data = {
+                nodes: nodes,
+                edges: edges
+            };
+            var options = {
+                nodes: {
+                    scaling: {
+                        min: 16,
+                        max: 32
+                    }
+                },
+                edges: {
+                    color: GRAY,
+                    smooth: false
+                },
+                physics: {
+                    barnesHut: {
+                        gravitationalConstant: -30000
+                    },
+                    stabilization: {
+                        iterations: 2500
+                    }
+                },
+                groups: {
+                    
+                    core_router:{
+                        shape: 'icon',
+                        icon: {
+                            face: 'FontAwesome',
+                            code: '\uf0a0',
+                            size: 50,
+                            color: 'orange'
+                        }
+                    },
+                    edge_router:{
+                        shape: 'icon',
+                        icon: {
+                            face: 'FontAwesome',
+                            code: '\uf0a0',
+                            size: 50,
+                            color: 'purple'
+                        }
+                    },
+                    gateway:{
+                      shape: 'icon',
+                        icon: {
+                            face: 'FontAwesome',
+                            code: '\uf0a0',
+                            size: 50,
+                            color: 'yellow'
+                        }
+                    },
+                     
+                    user: {
+                        shape: 'icon',
+                        icon: {
+                            face: 'FontAwesome',
+                            code: '\uf0c0',
+                            size: 50,
+                            color: 'blue'
+                        }
+                    },
+                    
+                    internet: {
+                       shape: 'icon',
+                        icon: {
+                            face: 'FontAwesome',
+                            code: '\uf0c2',
+                            size: 50,
+                            color: 'green'
+                        }
+                    }
+                }
+            };
+            network = new vis.Network(container, data, options);
+
+            var options = {
+                
+                interaction: {
+                    multiselect: true
+                }
+            }
+
+            network.setOptions(options);
+            
+
+            // handle click event
+            network.on('select', function(properties, a, b) {
+                if (network.getSelectedNodes().length == 2) {
+                    var n1 = network.getSelectedNodes()[0];
+                    var n2 = network.getSelectedNodes()[1];
+
+                    
+//                    unselect previous edges
+                     for (var i = 0; i < path_1st.length - 1; i++) {
+                        n3 = path_1st[i]
+                        n4 = path_1st[i + 1]
+
+                        edges.forEach(function(edge) {
+                            if (edge.from == n3 && edge.to == n4) {
+                                e=data.edges.get(edge.id);
+                                e.width=1;
+                                data.edges.update(e); 
+                                
+                                weight = weight + parseFloat(edge.label);
+                                var output = document.getElementById("output");
+                                
+                                output.innerHTML = "";
+                                
+                            }    
+                        });
+    
+                    } 
+                    
+                    graph = convert(edges);
+                    var dij = new Dijkstra(n1, n2, graph);
+                    paths = dij.getShortestPath();
+                    path_1st = paths;
+                    weight = 0;
+                    
+
+                    for (var i = 0; i < paths.length - 1; i++) {
+                        n1 = paths[i]
+                        n2 = paths[i + 1]
+
+                        edges.forEach(function(edge) {
+                            if (edge.from == n1 && edge.to == n2) {
+                                e=data.edges.get(edge.id);
+                                e.width=10;
+                                data.edges.update(e);
+                                
+                                console.log("From ", n1, " to ", n2, " weight: ", edge.label);
+                                
+                                var output = document.getElementById("output");
+                                
+                                output.innerHTML += "From " + n1 + " to " + n2 + " Latency: " + edge.label + "<br>";
+                                
+                              
+                                weight = weight + parseFloat(edge.label);
+                                
+                            }    
+                        });
+                       
+                    }    
+                    total_weight = weight*2;
+                    console.log("the total latency is", weight);
+                    document.getElementsByName('total_weight')[0].value= weight*2;
+                    
+                    
+                    
+                    
+                }
+            });  
+        }
+    
+        console.log("the total latency is", total_weight*2);
+        
+    </script>
+</head>
+
+<body onload="draw()">
+
+     <button id= "refresh" type="button" style="z-index: 1" onClick="window.location.reload();">Regenerate QoS parameters</button>   
+     <label for="total_weight">The total Latency is:
+        <input type="text" name="total_weight">
+    </label>
+    
+    <div id="output" style="z-index: 1"></div> 
+    <div id="legend" style="z-index: 1">
+        <i class="fa fa-cloud fa-lg" aria-hidden="true" style="color:green">ISP</i><br><br>
+        <i class="fa fa-hdd-o fa-lg" aria-hidden="true" style="color:yellow">Gateway</i><br><br>
+        <i class="fa fa-hdd-o fa-lg" aria-hidden="true" style="color:orange">CoreRouter</i><br><br>
+        <i class="fa fa-hdd-o fa-lg" aria-hidden="true" style="color:purple">EdgeRouter</i><br><br>
+        <i class="fa fa-group fa-lg" aria-hidden="true" style="color:blue">EndUser</i><br><br>
+    </div>
+
+    <label for="new_weight">Enter the new latency value:
+        <input type="text" name="new_weight" id="newlatency">
+    </label>
+    <button onClick="changeWeight()">Modify Latency of an edge</button>
+    
+    <div id="mynetwork">
+        <div class="vis-network" tabindex="900" style="position: relative; overflow: hidden; touch-action: pan-y; user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;"><canvas width="2406" height="1510" style="position: relative; touch-action: none; user-select: none; -webkit-user-drag: none; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); width: 100%; height: 100%;">
+        </canvas>
+        
+        <div id="output"></div> 
+        </div>        
+    </div>
+    
+    
+</body>
+</html>
+
+
